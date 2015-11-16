@@ -37,7 +37,7 @@ func (rl recordList) Less(i, j int) bool {
 	if rl[i].count == rl[j].count {
 		return rl[i].index < rl[j].index
 	}
-	return rl[i].count < rl[j].count
+	return rl[i].count > rl[j].count
 }
 
 func newCollector() *collector {
