@@ -26,8 +26,8 @@ func init() {
 
 func getOut(in io.Reader) []byte {
 	w := new(bytes.Buffer)
-	c := newCollector()
-	c.run(in, w)
+	c := newCollector(w)
+	c.run(in)
 	return w.Bytes()
 }
 

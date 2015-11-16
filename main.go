@@ -21,6 +21,7 @@ type record struct {
 }
 
 type collector struct {
+	w         io.Writer
 	buf       *bytes.Buffer
 	testName  string
 	anyFailed bool
@@ -40,59 +41,51 @@ func (rl recordList) Less(i, j int) bool {
 	return rl[i].count > rl[j].count
 }
 
-func newCollector() *collector {
+func newCollector(w io.Writer) *collector {
 	return &collector{
+		w:       w,
 		records: make(map[string]record, 0),
 	}
 }
 
-func (c *collector) sortedRecords() []record {
-	list := make(recordList, 0, len(c.records))
-	for s, r := range c.records {
-		if i := strings.Index(s, "\n"); i > 0 {
-			s = s[i+1:]
-		}
-		r.msg = s
-		list = append(list, r)
-	}
-	sort.Sort(list)
-	return list
-}
-
-func (c *collector) run(r io.Reader, w io.Writer) {
+func (c *collector) run(r io.Reader) {
 	c.scanner = bufio.NewScanner(r)
 	for c.scanner.Scan() {
 		line := c.scanner.Text()
-		switch {
-		case line == "FAIL" || line == "PASS":
-		case strings.HasPrefix(line, "exit status"):
-		case strings.HasPrefix(line, "?") || strings.HasPrefix(line, "ok"):
-			// These report the overall progress, showing
-			// what packages were ok or had no tests.
-			fmt.Fprintln(w, line)
-		case strings.HasPrefix(line, "FAIL"):
-			// Package failure. Show results.
-			c.finishRecord()
-			for _, r := range c.sortedRecords() {
-				fmt.Fprintf(w, "--- FAIL: %s (%d times)\n", r.name, r.count)
-				fmt.Fprint(w, r.msg)
-			}
-			c.records = make(map[string]record, 0)
-			fmt.Fprintln(w, "FAIL")
-			fmt.Fprintln(w, line)
-		case strings.HasPrefix(line, "--- FAIL"):
-			// Single test failure.
-			c.finishRecord()
-			c.testName = "Unknown"
-			if sp := strings.Split(line, " "); len(sp) > 2 {
-				c.testName = sp[2]
-			}
-			c.buf = new(bytes.Buffer)
-			fmt.Fprintln(c.buf, c.testName)
-		case c.buf != nil:
-			// Part of the current test error output
-			fmt.Fprintln(c.buf, line)
+		c.parseLine(line)
+	}
+}
+
+func (c *collector) parseLine(line string) {
+	switch {
+	case line == "FAIL" || line == "PASS":
+	case strings.HasPrefix(line, "exit status"):
+	case strings.HasPrefix(line, "?") || strings.HasPrefix(line, "ok"):
+		// These report the overall progress, showing
+		// what packages were ok or had no tests.
+		fmt.Fprintln(c.w, line)
+	case strings.HasPrefix(line, "FAIL"):
+		// Package failure. Show results.
+		c.finishRecord()
+		for _, r := range c.sortedRecords() {
+			fmt.Fprintf(c.w, "--- FAIL: %s (%d times)\n", r.name, r.count)
+			fmt.Fprint(c.w, r.msg)
 		}
+		c.records = make(map[string]record, 0)
+		fmt.Fprintln(c.w, "FAIL")
+		fmt.Fprintln(c.w, line)
+	case strings.HasPrefix(line, "--- FAIL"):
+		// Single test failure.
+		c.finishRecord()
+		c.testName = "Unknown"
+		if sp := strings.Split(line, " "); len(sp) > 2 {
+			c.testName = sp[2]
+		}
+		c.buf = new(bytes.Buffer)
+		fmt.Fprintln(c.buf, c.testName)
+	case c.buf != nil:
+		// Part of the current test error output
+		fmt.Fprintln(c.buf, line)
 	}
 }
 
@@ -115,9 +108,22 @@ func (c *collector) finishRecord() {
 	}
 }
 
+func (c *collector) sortedRecords() []record {
+	list := make(recordList, 0, len(c.records))
+	for s, r := range c.records {
+		if i := strings.Index(s, "\n"); i > 0 {
+			s = s[i+1:]
+		}
+		r.msg = s
+		list = append(list, r)
+	}
+	sort.Sort(list)
+	return list
+}
+
 func main() {
-	c := newCollector()
-	c.run(os.Stdin, os.Stdout)
+	c := newCollector(os.Stdout)
+	c.run(os.Stdin)
 	if c.anyFailed {
 		os.Exit(1)
 	}
