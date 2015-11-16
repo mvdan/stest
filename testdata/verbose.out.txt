@@ -1,3 +1,1 @@
-=== RUN   TestRegexes
---- PASS: TestRegexes (0.01s)
 ok      foo.org/bar	0.050s

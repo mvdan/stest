@@ -102,9 +102,6 @@ func (c *collector) run(r io.Reader, w io.Writer) {
 			fmt.Fprintln(c.buf, line)
 			continue
 		}
-		// We don't use these lines, so just let them
-		// through. They may come from -v.
-		fmt.Fprintln(w, line)
 	}
 }
 
