@@ -44,6 +44,7 @@ func (rl recordList) Less(i, j int) bool {
 func newCollector(w io.Writer) *collector {
 	return &collector{
 		w:       w,
+		buf:     new(bytes.Buffer),
 		records: make(map[string]record, 0),
 	}
 }
@@ -60,6 +61,8 @@ func (c *collector) parseLine(line string) {
 	switch {
 	case line == "FAIL" || line == "PASS":
 	case strings.HasPrefix(line, "exit status"):
+	case strings.HasPrefix(line, "=== RUN"):
+		c.finishRecord()
 	case strings.HasPrefix(line, "?") || strings.HasPrefix(line, "ok"):
 		// These report the overall progress, showing
 		// what packages were ok or had no tests.
@@ -81,16 +84,15 @@ func (c *collector) parseLine(line string) {
 		if sp := strings.Split(line, " "); len(sp) > 2 {
 			c.testName = sp[2]
 		}
-		c.buf = new(bytes.Buffer)
 		fmt.Fprintln(c.buf, c.testName)
-	case c.buf != nil:
+	case c.testName != "":
 		// Part of the current test error output
 		fmt.Fprintln(c.buf, line)
 	}
 }
 
 func (c *collector) finishRecord() {
-	if c.buf == nil {
+	if c.testName == "" {
 		return
 	}
 	c.anyFailed = true
@@ -106,6 +108,8 @@ func (c *collector) finishRecord() {
 		}
 		c.curIndex++
 	}
+	c.buf.Reset()
+	c.testName = ""
 }
 
 func (c *collector) sortedRecords() []record {
