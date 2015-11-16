@@ -67,8 +67,7 @@ func (c *collector) run(r io.Reader, w io.Writer) {
 			c.finishRecord()
 			list := make(recordList, 0, len(c.records))
 			for s, r := range c.records {
-				i := strings.Index(s, "\n")
-				if i > 0 {
+				if i := strings.Index(s, "\n"); i > 0 {
 					s = s[i+1:]
 				}
 				r.msg = s
