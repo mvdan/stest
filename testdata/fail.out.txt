@@ -1,0 +1,4 @@
+--- FAIL: TestFoo (1 times)
+        foo_test.go:10: wanted foo, got bar
+FAIL
+FAIL	foo.org/bar	0.050s
