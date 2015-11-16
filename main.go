@@ -9,12 +9,15 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 )
 
 type record struct {
 	name  string
 	count int
+	msg   string
+	index int
 }
 
 type collector struct {
@@ -23,6 +26,18 @@ type collector struct {
 	anyFailed bool
 	records   map[string]record
 	scanner   *bufio.Scanner
+	curIndex  int
+}
+
+type recordList []record
+
+func (rl recordList) Len() int      { return len(rl) }
+func (rl recordList) Swap(i, j int) { rl[i], rl[j] = rl[j], rl[i] }
+func (rl recordList) Less(i, j int) bool {
+	if rl[i].count == rl[j].count {
+		return rl[i].index < rl[j].index
+	}
+	return rl[i].count < rl[j].count
 }
 
 func newCollector() *collector {
@@ -48,13 +63,19 @@ func (c *collector) run(r io.Reader, w io.Writer) {
 		if strings.HasPrefix(line, "FAIL") {
 			// Some tests failed. Show the stats.
 			c.finishRecord()
+			list := make(recordList, 0, len(c.records))
 			for s, r := range c.records {
-				fmt.Fprintf(w, "--- FAIL: %s (%d times)\n", r.name, r.count)
 				i := strings.Index(s, "\n")
 				if i > 0 {
 					s = s[i+1:]
 				}
-				fmt.Fprint(w, s)
+				r.msg = s
+				list = append(list, r)
+			}
+			sort.Sort(list)
+			for _, r := range list {
+				fmt.Fprintf(w, "--- FAIL: %s (%d times)\n", r.name, r.count)
+				fmt.Fprint(w, r.msg)
 			}
 			c.records = make(map[string]record, 0)
 			fmt.Fprintln(w, "FAIL")
@@ -97,7 +118,9 @@ func (c *collector) finishRecord() {
 		c.records[s] = record{
 			name:  c.testName,
 			count: 1,
+			index: c.curIndex,
 		}
+		c.curIndex++
 	}
 }
 
