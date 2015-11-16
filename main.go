@@ -46,6 +46,13 @@ func (c *collector) run(r io.Reader) {
 	}
 }
 
+func extractTestName(line string) string {
+	if sp := strings.Split(line, " "); len(sp) > 2 {
+		return sp[2]
+	}
+	return "Unknown"
+}
+
 func (c *collector) parseLine(line string) {
 	switch {
 	case line == "FAIL" || line == "PASS":
@@ -69,10 +76,7 @@ func (c *collector) parseLine(line string) {
 	case strings.HasPrefix(line, "--- FAIL"):
 		// Single test failure.
 		c.finishRecord()
-		c.testName = "Unknown"
-		if sp := strings.Split(line, " "); len(sp) > 2 {
-			c.testName = sp[2]
-		}
+		c.testName = extractTestName(line)
 		fmt.Fprintln(c.buf, c.testName)
 	case c.testName != "":
 		// Part of the current test error output
