@@ -1,0 +1,7 @@
+--- FAIL: TestFoo (0.01s)
+	foo_test.go:10: wanted foo, got bar
+--- FAIL: TestBar (0.01s)
+	foo_test.go:20: wanted bar, got foo
+FAIL
+exit status 1
+FAIL	foo.org/bar	0.050s

@@ -53,6 +53,9 @@ func (c *collector) run(r io.Reader, w io.Writer) {
 		if line == "FAIL" || line == "PASS" {
 			continue
 		}
+		if strings.HasPrefix(line, "exit status") {
+			continue
+		}
 		if strings.HasPrefix(line, "?") || strings.HasPrefix(line, "ok") {
 			// These report the overall progress, showing
 			// what packages were ok or had no tests.
