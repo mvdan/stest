@@ -46,6 +46,19 @@ func newCollector() *collector {
 	}
 }
 
+func (c *collector) sortedRecords() []record {
+	list := make(recordList, 0, len(c.records))
+	for s, r := range c.records {
+		if i := strings.Index(s, "\n"); i > 0 {
+			s = s[i+1:]
+		}
+		r.msg = s
+		list = append(list, r)
+	}
+	sort.Sort(list)
+	return list
+}
+
 func (c *collector) run(r io.Reader, w io.Writer) {
 	c.scanner = bufio.NewScanner(r)
 	for c.scanner.Scan() {
@@ -60,16 +73,7 @@ func (c *collector) run(r io.Reader, w io.Writer) {
 		case strings.HasPrefix(line, "FAIL"):
 			// Package failure. Show results.
 			c.finishRecord()
-			list := make(recordList, 0, len(c.records))
-			for s, r := range c.records {
-				if i := strings.Index(s, "\n"); i > 0 {
-					s = s[i+1:]
-				}
-				r.msg = s
-				list = append(list, r)
-			}
-			sort.Sort(list)
-			for _, r := range list {
+			for _, r := range c.sortedRecords() {
 				fmt.Fprintf(w, "--- FAIL: %s (%d times)\n", r.name, r.count)
 				fmt.Fprint(w, r.msg)
 			}
