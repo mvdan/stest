@@ -30,17 +30,6 @@ type collector struct {
 	curIndex  int
 }
 
-type recordList []record
-
-func (rl recordList) Len() int      { return len(rl) }
-func (rl recordList) Swap(i, j int) { rl[i], rl[j] = rl[j], rl[i] }
-func (rl recordList) Less(i, j int) bool {
-	if rl[i].count == rl[j].count {
-		return rl[i].index < rl[j].index
-	}
-	return rl[i].count > rl[j].count
-}
-
 func newCollector(w io.Writer) *collector {
 	return &collector{
 		w:       w,
@@ -110,6 +99,17 @@ func (c *collector) finishRecord() {
 	}
 	c.buf.Reset()
 	c.testName = ""
+}
+
+type recordList []record
+
+func (rl recordList) Len() int      { return len(rl) }
+func (rl recordList) Swap(i, j int) { rl[i], rl[j] = rl[j], rl[i] }
+func (rl recordList) Less(i, j int) bool {
+	if rl[i].count == rl[j].count {
+		return rl[i].index < rl[j].index
+	}
+	return rl[i].count > rl[j].count
 }
 
 func (c *collector) sortedRecords() []record {
