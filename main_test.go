@@ -5,17 +5,28 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"io/ioutil"
 	"path/filepath"
 	"testing"
 )
 
-func doTest(t *testing.T, testName, in, exp string) {
+var write = flag.Bool("w", false, "Write test output files")
+
+func init() {
+	flag.Parse()
+}
+
+func getOut(in string) []byte {
 	r := bytes.NewBufferString(in)
 	w := new(bytes.Buffer)
 	c := newCollector()
 	c.run(r, w)
-	got := w.String()
+	return w.Bytes()
+}
+
+func doTest(t *testing.T, testName, in, exp string) {
+	got := string(getOut(in))
 	if got != exp {
 		t.Errorf("Unexpected output in test: %s\nExpected:\n%s\nGot:\n%s\n",
 			testName, exp, got)
@@ -35,10 +46,17 @@ func TestCases(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		exp, err := ioutil.ReadFile(outPath)
-		if err != nil {
-			t.Fatal(err)
+		if *write {
+			out := getOut(string(in))
+			if err := ioutil.WriteFile(outPath, out, 0644); err != nil {
+				t.Fatal(err)
+			}
+		} else {
+			exp, err := ioutil.ReadFile(outPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			doTest(t, testName, string(in), string(exp))
 		}
-		doTest(t, testName, string(in), string(exp))
 	}
 }
