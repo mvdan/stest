@@ -59,7 +59,6 @@ func (c *collector) run(r io.Reader, w io.Writer) {
 		if strings.HasPrefix(line, "?") || strings.HasPrefix(line, "ok") {
 			// These report the overall progress, showing
 			// what packages were ok or had no tests.
-			c.records = make(map[string]record, 0)
 			fmt.Fprintln(w, line)
 			continue
 		}
