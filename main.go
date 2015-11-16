@@ -50,19 +50,14 @@ func (c *collector) run(r io.Reader, w io.Writer) {
 	c.scanner = bufio.NewScanner(r)
 	for c.scanner.Scan() {
 		line := c.scanner.Text()
-		if line == "FAIL" || line == "PASS" {
-			continue
-		}
-		if strings.HasPrefix(line, "exit status") {
-			continue
-		}
-		if strings.HasPrefix(line, "?") || strings.HasPrefix(line, "ok") {
+		switch {
+		case line == "FAIL" || line == "PASS":
+		case strings.HasPrefix(line, "exit status"):
+		case strings.HasPrefix(line, "?") || strings.HasPrefix(line, "ok"):
 			// These report the overall progress, showing
 			// what packages were ok or had no tests.
 			fmt.Fprintln(w, line)
-			continue
-		}
-		if strings.HasPrefix(line, "FAIL") {
+		case strings.HasPrefix(line, "FAIL"):
 			// Some tests failed. Show the stats.
 			c.finishRecord()
 			list := make(recordList, 0, len(c.records))
@@ -81,9 +76,7 @@ func (c *collector) run(r io.Reader, w io.Writer) {
 			c.records = make(map[string]record, 0)
 			fmt.Fprintln(w, "FAIL")
 			fmt.Fprintln(w, line)
-			continue
-		}
-		if strings.HasPrefix(line, "--- FAIL") {
+		case strings.HasPrefix(line, "--- FAIL"):
 			// Some test failed. Record its name and start
 			// grabbing the output lines.
 			c.finishRecord()
@@ -93,12 +86,9 @@ func (c *collector) run(r io.Reader, w io.Writer) {
 			}
 			c.buf = new(bytes.Buffer)
 			fmt.Fprintln(c.buf, c.testName)
-			continue
-		}
-		if c.buf != nil {
+		case c.buf != nil:
 			// Part of the test error output
 			fmt.Fprintln(c.buf, line)
-			continue
 		}
 	}
 }
