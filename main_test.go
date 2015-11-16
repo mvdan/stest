@@ -17,7 +17,7 @@ func doTest(t *testing.T, testName, in, exp string) {
 	c.run(r, w)
 	got := w.String()
 	if got != exp {
-		t.Errorf("Unexpected output in test %s.\nExpected:\n%s\nGot:\n%s\n",
+		t.Errorf("Unexpected output in test: %s\nExpected:\n%s\nGot:\n%s\n",
 			testName, exp, got)
 	}
 }
@@ -30,7 +30,7 @@ func TestCases(t *testing.T) {
 	for _, inPath := range inPaths {
 		base := inPath[:len(inPath)-len(".in.txt")]
 		outPath := base + ".out.txt"
-		testName := base[len("testdata"):]
+		testName := base[len("testdata")+1:]
 		in, err := ioutil.ReadFile(inPath)
 		if err != nil {
 			t.Fatal(err)
