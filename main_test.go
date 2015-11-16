@@ -6,30 +6,58 @@ package main
 import (
 	"bytes"
 	"flag"
+	"io"
 	"io/ioutil"
+	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 )
 
-var write = flag.Bool("w", false, "Write test output files")
+var (
+	write = flag.Bool("w", false, "Write test output files")
+
+	testNameRegexp = regexp.MustCompile(`testdata/(.*)\.in\.txt`)
+)
 
 func init() {
 	flag.Parse()
 }
 
-func getOut(in string) []byte {
-	r := bytes.NewBufferString(in)
+func getOut(in io.Reader) []byte {
 	w := new(bytes.Buffer)
 	c := newCollector()
-	c.run(r, w)
+	c.run(in, w)
 	return w.Bytes()
 }
 
-func doTest(t *testing.T, testName, in, exp string) {
+func doTest(t *testing.T, testName string, in io.Reader, exp string) {
 	got := string(getOut(in))
 	if got != exp {
 		t.Errorf("Unexpected output in test: %s\nExpected:\n%s\nGot:\n%s\n",
 			testName, exp, got)
+	}
+}
+
+func testCase(t *testing.T, testName string) {
+	inPath := filepath.Join("testdata", testName+".in.txt")
+	outPath := filepath.Join("testdata", testName+".out.txt")
+	in, err := os.Open(inPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer in.Close()
+	if *write {
+		out := getOut(in)
+		if err := ioutil.WriteFile(outPath, out, 0644); err != nil {
+			t.Fatal(err)
+		}
+	} else {
+		exp, err := ioutil.ReadFile(outPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		doTest(t, testName, in, string(exp))
 	}
 }
 
@@ -39,24 +67,11 @@ func TestCases(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, inPath := range inPaths {
-		base := inPath[:len(inPath)-len(".in.txt")]
-		outPath := base + ".out.txt"
-		testName := base[len("testdata")+1:]
-		in, err := ioutil.ReadFile(inPath)
-		if err != nil {
-			t.Fatal(err)
+		m := testNameRegexp.FindStringSubmatch(inPath)
+		if m == nil {
+			continue
 		}
-		if *write {
-			out := getOut(string(in))
-			if err := ioutil.WriteFile(outPath, out, 0644); err != nil {
-				t.Fatal(err)
-			}
-		} else {
-			exp, err := ioutil.ReadFile(outPath)
-			if err != nil {
-				t.Fatal(err)
-			}
-			doTest(t, testName, string(in), string(exp))
-		}
+		testName := m[1]
+		testCase(t, testName)
 	}
 }
