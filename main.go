@@ -50,7 +50,7 @@ func (c *collector) run(r io.Reader, w io.Writer) {
 	c.scanner = bufio.NewScanner(r)
 	for c.scanner.Scan() {
 		line := c.scanner.Text()
-		if line == "FAIL" {
+		if line == "FAIL" || line == "PASS" {
 			continue
 		}
 		if strings.HasPrefix(line, "?") || strings.HasPrefix(line, "ok") {
