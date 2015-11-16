@@ -58,7 +58,7 @@ func (c *collector) run(r io.Reader, w io.Writer) {
 			// what packages were ok or had no tests.
 			fmt.Fprintln(w, line)
 		case strings.HasPrefix(line, "FAIL"):
-			// Some tests failed. Show the stats.
+			// Package failure. Show results.
 			c.finishRecord()
 			list := make(recordList, 0, len(c.records))
 			for s, r := range c.records {
@@ -77,8 +77,7 @@ func (c *collector) run(r io.Reader, w io.Writer) {
 			fmt.Fprintln(w, "FAIL")
 			fmt.Fprintln(w, line)
 		case strings.HasPrefix(line, "--- FAIL"):
-			// Some test failed. Record its name and start
-			// grabbing the output lines.
+			// Single test failure.
 			c.finishRecord()
 			c.testName = "Unknown"
 			if sp := strings.Split(line, " "); len(sp) > 2 {
@@ -87,7 +86,7 @@ func (c *collector) run(r io.Reader, w io.Writer) {
 			c.buf = new(bytes.Buffer)
 			fmt.Fprintln(c.buf, c.testName)
 		case c.buf != nil:
-			// Part of the test error output
+			// Part of the current test error output
 			fmt.Fprintln(c.buf, line)
 		}
 	}
