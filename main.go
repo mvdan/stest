@@ -14,10 +14,10 @@ import (
 )
 
 type record struct {
-	name  string
-	count int
-	msg   string
-	index int
+	name   string
+	index  int
+	msg    string
+	failed int
 }
 
 type collector struct {
@@ -67,7 +67,7 @@ func (c *collector) parseLine(line string) {
 		// Package failure. Show results.
 		c.finishRecord()
 		for _, r := range c.sortedRecords() {
-			fmt.Fprintf(c.w, "--- FAIL: %s (%d times)\n", r.name, r.count)
+			fmt.Fprintf(c.w, "--- FAIL: %s (%d times)\n", r.name, r.failed)
 			fmt.Fprint(c.w, r.msg)
 		}
 		c.records = make(map[string]record, 0)
@@ -91,13 +91,13 @@ func (c *collector) finishRecord() {
 	c.anyFailed = true
 	s := c.buf.String()
 	if r, e := c.records[s]; e {
-		r.count++
+		r.failed++
 		c.records[s] = r
 	} else {
 		c.records[s] = record{
-			name:  c.testName,
-			count: 1,
-			index: c.curIndex,
+			name:   c.testName,
+			failed: 1,
+			index:  c.curIndex,
 		}
 		c.curIndex++
 	}
@@ -110,10 +110,10 @@ type recordList []record
 func (rl recordList) Len() int      { return len(rl) }
 func (rl recordList) Swap(i, j int) { rl[i], rl[j] = rl[j], rl[i] }
 func (rl recordList) Less(i, j int) bool {
-	if rl[i].count == rl[j].count {
+	if rl[i].failed == rl[j].failed {
 		return rl[i].index < rl[j].index
 	}
-	return rl[i].count > rl[j].count
+	return rl[i].failed > rl[j].failed
 }
 
 func (c *collector) sortedRecords() []record {
