@@ -14,10 +14,11 @@ import (
 )
 
 type record struct {
-	name   string
-	index  int
-	msg    string
-	failed int
+	name    string
+	index   int
+	msg     string
+	failed  int
+	percent float32
 }
 
 type collector struct {
@@ -26,6 +27,7 @@ type collector struct {
 	testName  string
 	anyFailed bool
 	records   map[string]record
+	timesRan  map[string]int
 	scanner   *bufio.Scanner
 	curIndex  int
 }
@@ -35,6 +37,7 @@ func newCollector(w io.Writer) *collector {
 		w:       w,
 		buf:     new(bytes.Buffer),
 		records: make(map[string]record, 0),
+		timesRan: make(map[string]int, 0),
 	}
 }
 
@@ -47,8 +50,8 @@ func (c *collector) run(r io.Reader) {
 }
 
 func extractTestName(line string) string {
-	if sp := strings.Split(line, " "); len(sp) > 2 {
-		return sp[2]
+	if fields := strings.Fields(line); len(fields) > 2 {
+		return fields[2]
 	}
 	return "Unknown"
 }
@@ -58,6 +61,12 @@ func (c *collector) parseLine(line string) {
 	case line == "FAIL" || line == "PASS":
 	case strings.HasPrefix(line, "exit status"):
 	case strings.HasPrefix(line, "=== RUN"):
+		testName := extractTestName(line)
+		if _, e := c.timesRan[testName]; e {
+			c.timesRan[testName]++
+		} else {
+			c.timesRan[testName] = 1
+		}
 		c.finishRecord()
 	case strings.HasPrefix(line, "?") || strings.HasPrefix(line, "ok"):
 		// These report the overall progress, showing
@@ -67,10 +76,17 @@ func (c *collector) parseLine(line string) {
 		// Package failure. Show results.
 		c.finishRecord()
 		for _, r := range c.sortedRecords() {
-			fmt.Fprintf(c.w, "--- FAIL: %s (%d times)\n", r.name, r.failed)
+			if r.percent > 0 {
+				fmt.Fprintf(c.w, "--- FAIL: %s (%d times, %.2f%%)\n",
+					r.name, r.failed, r.percent)
+			} else {
+				fmt.Fprintf(c.w, "--- FAIL: %s (%d times)\n",
+					r.name, r.failed)
+			}
 			fmt.Fprint(c.w, r.msg)
 		}
 		c.records = make(map[string]record, 0)
+		c.timesRan = make(map[string]int, 0)
 		fmt.Fprintln(c.w, "FAIL")
 		fmt.Fprintln(c.w, line)
 	case strings.HasPrefix(line, "--- FAIL"):
@@ -123,6 +139,10 @@ func (c *collector) sortedRecords() []record {
 			s = s[i+1:]
 		}
 		r.msg = s
+		ran := c.timesRan[r.name]
+		if ran > 0 {
+			r.percent = 100*(float32(r.failed)/float32(ran))
+		}
 		list = append(list, r)
 	}
 	sort.Sort(list)
