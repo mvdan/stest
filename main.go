@@ -24,17 +24,16 @@ type testResults struct {
 }
 
 type collector struct {
-	w         io.Writer
-	buf       *bytes.Buffer
-	testName  string
-	anyFailed bool
-	byName    map[string]testResults
+	w        io.Writer
+	buf      *bytes.Buffer
+	testName string
+	byName   map[string]testResults
 }
 
 func newCollector(w io.Writer) *collector {
 	return &collector{
-		w:       w,
-		buf:     new(bytes.Buffer),
+		w:      w,
+		buf:    new(bytes.Buffer),
 		byName: make(map[string]testResults, 0),
 	}
 }
@@ -62,7 +61,7 @@ func (c *collector) parseLine(line string) {
 		name := extractTestName(line)
 		if _, e := c.byName[name]; !e {
 			c.byName[name] = testResults{
-				name: name,
+				name:  name,
 				index: len(c.byName),
 				byMsg: make(map[string]int, 0),
 			}
@@ -110,11 +109,10 @@ func (c *collector) finishRecord() {
 	if c.testName == "" {
 		return
 	}
-	c.anyFailed = true
 	msg := c.buf.String()
 	if _, e := c.byName[c.testName]; !e {
 		c.byName[c.testName] = testResults{
-			name: c.testName,
+			name:  c.testName,
 			index: len(c.byName),
 			byMsg: make(map[string]int, 0),
 		}
@@ -147,7 +145,7 @@ func (c *collector) sortedResults() []testResults {
 	for n, r := range c.byName {
 		r.name = n
 		if r.timesRan > 0 {
-			r.percent = 100*(float32(r.failed)/float32(r.timesRan))
+			r.percent = 100 * (float32(r.failed) / float32(r.timesRan))
 		}
 		list = append(list, r)
 	}
@@ -158,7 +156,7 @@ func (c *collector) sortedResults() []testResults {
 func main() {
 	c := newCollector(os.Stdout)
 	c.run(os.Stdin)
-	if c.anyFailed {
+	if len(c.byName) > 0 {
 		os.Exit(1)
 	}
 }
