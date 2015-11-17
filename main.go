@@ -13,22 +13,23 @@ import (
 	"strings"
 )
 
-type record struct {
-	name    string
-	index   int
-	msg     string
+type testResults struct {
+	name     string
+	index    int
+	timesRan int
+	byMsg    map[string]int
+
 	failed  int
 	percent float32
 }
 
 type collector struct {
+	scanner   *bufio.Scanner
 	w         io.Writer
 	buf       *bytes.Buffer
 	testName  string
 	anyFailed bool
-	records   map[string]record
-	timesRan  map[string]int
-	scanner   *bufio.Scanner
+	byName    map[string]testResults
 	curIndex  int
 }
 
@@ -36,8 +37,7 @@ func newCollector(w io.Writer) *collector {
 	return &collector{
 		w:       w,
 		buf:     new(bytes.Buffer),
-		records: make(map[string]record, 0),
-		timesRan: make(map[string]int, 0),
+		byName: make(map[string]testResults, 0),
 	}
 }
 
@@ -61,12 +61,18 @@ func (c *collector) parseLine(line string) {
 	case line == "FAIL" || line == "PASS":
 	case strings.HasPrefix(line, "exit status"):
 	case strings.HasPrefix(line, "=== RUN"):
-		testName := extractTestName(line)
-		if _, e := c.timesRan[testName]; e {
-			c.timesRan[testName]++
-		} else {
-			c.timesRan[testName] = 1
+		name := extractTestName(line)
+		if _, e := c.byName[name]; !e {
+			c.byName[name] = testResults{
+				name: name,
+				index: c.curIndex,
+				byMsg: make(map[string]int, 0),
+			}
+			c.curIndex++
 		}
+		r := c.byName[name]
+		r.timesRan++
+		c.byName[name] = r
 		c.finishRecord()
 	case strings.HasPrefix(line, "?") || strings.HasPrefix(line, "ok"):
 		// These report the overall progress, showing
@@ -75,7 +81,7 @@ func (c *collector) parseLine(line string) {
 	case strings.HasPrefix(line, "FAIL"):
 		// Package failure. Show results.
 		c.finishRecord()
-		for _, r := range c.sortedRecords() {
+		for _, r := range c.sortedResults() {
 			if r.percent > 0 {
 				fmt.Fprintf(c.w, "--- FAIL: %s (%d times, %.2f%%)\n",
 					r.name, r.failed, r.percent)
@@ -83,17 +89,20 @@ func (c *collector) parseLine(line string) {
 				fmt.Fprintf(c.w, "--- FAIL: %s (%d times)\n",
 					r.name, r.failed)
 			}
-			fmt.Fprint(c.w, r.msg)
+			for msg, count := range r.byMsg {
+				if len(r.byMsg) > 1 {
+					fmt.Fprintf(c.w, "-- Failed %d times:\n", count)
+				}
+				fmt.Fprint(c.w, msg)
+			}
 		}
-		c.records = make(map[string]record, 0)
-		c.timesRan = make(map[string]int, 0)
+		c.byName = make(map[string]testResults, 0)
 		fmt.Fprintln(c.w, "FAIL")
 		fmt.Fprintln(c.w, line)
 	case strings.HasPrefix(line, "--- FAIL"):
 		// Single test failure.
 		c.finishRecord()
 		c.testName = extractTestName(line)
-		fmt.Fprintln(c.buf, c.testName)
 	case c.testName != "":
 		// Part of the current test error output
 		fmt.Fprintln(c.buf, line)
@@ -105,43 +114,44 @@ func (c *collector) finishRecord() {
 		return
 	}
 	c.anyFailed = true
-	s := c.buf.String()
-	if r, e := c.records[s]; e {
-		r.failed++
-		c.records[s] = r
-	} else {
-		c.records[s] = record{
-			name:   c.testName,
-			failed: 1,
-			index:  c.curIndex,
+	msg := c.buf.String()
+	if _, e := c.byName[c.testName]; !e {
+		c.byName[c.testName] = testResults{
+			name: c.testName,
+			index: c.curIndex,
+			byMsg: make(map[string]int, 0),
 		}
 		c.curIndex++
 	}
+	r := c.byName[c.testName]
+	r.failed++
+	if _, e := r.byMsg[msg]; e {
+		r.byMsg[msg]++
+	} else {
+		r.byMsg[msg] = 1
+	}
+	c.byName[c.testName] = r
 	c.buf.Reset()
 	c.testName = ""
 }
 
-type recordList []record
+type resultsList []testResults
 
-func (rl recordList) Len() int      { return len(rl) }
-func (rl recordList) Swap(i, j int) { rl[i], rl[j] = rl[j], rl[i] }
-func (rl recordList) Less(i, j int) bool {
+func (rl resultsList) Len() int      { return len(rl) }
+func (rl resultsList) Swap(i, j int) { rl[i], rl[j] = rl[j], rl[i] }
+func (rl resultsList) Less(i, j int) bool {
 	if rl[i].failed == rl[j].failed {
 		return rl[i].index < rl[j].index
 	}
 	return rl[i].failed > rl[j].failed
 }
 
-func (c *collector) sortedRecords() []record {
-	list := make(recordList, 0, len(c.records))
-	for s, r := range c.records {
-		if i := strings.Index(s, "\n"); i > 0 {
-			s = s[i+1:]
-		}
-		r.msg = s
-		ran := c.timesRan[r.name]
-		if ran > 0 {
-			r.percent = 100*(float32(r.failed)/float32(ran))
+func (c *collector) sortedResults() []testResults {
+	list := make(resultsList, 0, len(c.byName))
+	for n, r := range c.byName {
+		r.name = n
+		if r.timesRan > 0 {
+			r.percent = 100*(float32(r.failed)/float32(r.timesRan))
 		}
 		list = append(list, r)
 	}
