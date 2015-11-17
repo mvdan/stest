@@ -98,7 +98,9 @@ func (c *collector) parseLine(line string) {
 	case strings.HasPrefix(line, "--- FAIL"):
 		// Single test failure.
 		c.finishRecord()
-		c.testName = extractTestName(line)
+		if c.testName == "" {
+			c.testName = extractTestName(line)
+		}
 	case c.testName != "":
 		// Part of the current test error output
 		fmt.Fprintln(c.buf, line)
