@@ -24,7 +24,6 @@ type testResults struct {
 }
 
 type collector struct {
-	scanner   *bufio.Scanner
 	w         io.Writer
 	buf       *bytes.Buffer
 	testName  string
@@ -41,9 +40,9 @@ func newCollector(w io.Writer) *collector {
 }
 
 func (c *collector) run(r io.Reader) {
-	c.scanner = bufio.NewScanner(r)
-	for c.scanner.Scan() {
-		line := c.scanner.Text()
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		line := scanner.Text()
 		c.parseLine(line)
 	}
 }
