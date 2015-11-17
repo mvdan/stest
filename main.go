@@ -30,7 +30,6 @@ type collector struct {
 	testName  string
 	anyFailed bool
 	byName    map[string]testResults
-	curIndex  int
 }
 
 func newCollector(w io.Writer) *collector {
@@ -65,10 +64,9 @@ func (c *collector) parseLine(line string) {
 		if _, e := c.byName[name]; !e {
 			c.byName[name] = testResults{
 				name: name,
-				index: c.curIndex,
+				index: len(c.byName),
 				byMsg: make(map[string]int, 0),
 			}
-			c.curIndex++
 		}
 		r := c.byName[name]
 		r.timesRan++
@@ -118,10 +116,9 @@ func (c *collector) finishRecord() {
 	if _, e := c.byName[c.testName]; !e {
 		c.byName[c.testName] = testResults{
 			name: c.testName,
-			index: c.curIndex,
+			index: len(c.byName),
 			byMsg: make(map[string]int, 0),
 		}
-		c.curIndex++
 	}
 	r := c.byName[c.testName]
 	r.failed++
