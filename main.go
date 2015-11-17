@@ -24,7 +24,7 @@ type testResults struct {
 }
 
 type collector struct {
-	w        io.Writer
+	out      io.Writer
 	buf      *bytes.Buffer
 	testName string
 	byName   map[string]testResults
@@ -32,7 +32,7 @@ type collector struct {
 
 func newCollector(w io.Writer) *collector {
 	return &collector{
-		w:      w,
+		out:    w,
 		buf:    new(bytes.Buffer),
 		byName: make(map[string]testResults, 0),
 	}
@@ -67,17 +67,17 @@ func (c *collector) getTestResults(name string) testResults {
 func (c *collector) printResults() {
 	for _, r := range c.sortedResults() {
 		if r.percent > 0 {
-			fmt.Fprintf(c.w, "--- FAIL: %s (%d times, %.2f%%)\n",
+			fmt.Fprintf(c.out, "--- FAIL: %s (%d times, %.2f%%)\n",
 				r.name, r.failed, r.percent)
 		} else {
-			fmt.Fprintf(c.w, "--- FAIL: %s (%d times)\n",
+			fmt.Fprintf(c.out, "--- FAIL: %s (%d times)\n",
 				r.name, r.failed)
 		}
 		for msg, count := range r.byMsg {
 			if len(r.byMsg) > 1 {
-				fmt.Fprintf(c.w, "-- Failed %d times:\n", count)
+				fmt.Fprintf(c.out, "-- Failed %d times:\n", count)
 			}
-			fmt.Fprint(c.w, msg)
+			fmt.Fprint(c.out, msg)
 		}
 	}
 }
@@ -97,15 +97,15 @@ func (c *collector) parseLine(line string) {
 	case strings.HasPrefix(line, "?") || strings.HasPrefix(line, "ok"):
 		// These report the overall progress, showing
 		// what packages were ok or had no tests.
-		fmt.Fprintln(c.w, line)
+		fmt.Fprintln(c.out, line)
 
 	case strings.HasPrefix(line, "FAIL"):
 		// Package failure. Show results.
 		c.finishRecord()
 		c.printResults()
 		c.byName = make(map[string]testResults, 0)
-		fmt.Fprintln(c.w, "FAIL")
-		fmt.Fprintln(c.w, line)
+		fmt.Fprintln(c.out, "FAIL")
+		fmt.Fprintln(c.out, line)
 
 	case strings.HasPrefix(line, "--- FAIL"):
 		// Single test failure.
