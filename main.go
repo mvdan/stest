@@ -53,54 +53,67 @@ func extractTestName(line string) string {
 	return "Unknown"
 }
 
+func (c *collector) getTestResults(name string) testResults {
+	if _, e := c.byName[name]; !e {
+		c.byName[name] = testResults{
+			name:  name,
+			index: len(c.byName),
+			byMsg: make(map[string]int, 0),
+		}
+	}
+	return c.byName[name]
+}
+
+func (c *collector) printResults() {
+	for _, r := range c.sortedResults() {
+		if r.percent > 0 {
+			fmt.Fprintf(c.w, "--- FAIL: %s (%d times, %.2f%%)\n",
+				r.name, r.failed, r.percent)
+		} else {
+			fmt.Fprintf(c.w, "--- FAIL: %s (%d times)\n",
+				r.name, r.failed)
+		}
+		for msg, count := range r.byMsg {
+			if len(r.byMsg) > 1 {
+				fmt.Fprintf(c.w, "-- Failed %d times:\n", count)
+			}
+			fmt.Fprint(c.w, msg)
+		}
+	}
+}
+
 func (c *collector) parseLine(line string) {
 	switch {
 	case line == "FAIL" || line == "PASS":
 	case strings.HasPrefix(line, "exit status"):
+
 	case strings.HasPrefix(line, "=== RUN"):
 		name := extractTestName(line)
-		if _, e := c.byName[name]; !e {
-			c.byName[name] = testResults{
-				name:  name,
-				index: len(c.byName),
-				byMsg: make(map[string]int, 0),
-			}
-		}
-		r := c.byName[name]
+		r := c.getTestResults(name)
 		r.timesRan++
 		c.byName[name] = r
 		c.finishRecord()
+
 	case strings.HasPrefix(line, "?") || strings.HasPrefix(line, "ok"):
 		// These report the overall progress, showing
 		// what packages were ok or had no tests.
 		fmt.Fprintln(c.w, line)
+
 	case strings.HasPrefix(line, "FAIL"):
 		// Package failure. Show results.
 		c.finishRecord()
-		for _, r := range c.sortedResults() {
-			if r.percent > 0 {
-				fmt.Fprintf(c.w, "--- FAIL: %s (%d times, %.2f%%)\n",
-					r.name, r.failed, r.percent)
-			} else {
-				fmt.Fprintf(c.w, "--- FAIL: %s (%d times)\n",
-					r.name, r.failed)
-			}
-			for msg, count := range r.byMsg {
-				if len(r.byMsg) > 1 {
-					fmt.Fprintf(c.w, "-- Failed %d times:\n", count)
-				}
-				fmt.Fprint(c.w, msg)
-			}
-		}
+		c.printResults()
 		c.byName = make(map[string]testResults, 0)
 		fmt.Fprintln(c.w, "FAIL")
 		fmt.Fprintln(c.w, line)
+
 	case strings.HasPrefix(line, "--- FAIL"):
 		// Single test failure.
 		c.finishRecord()
 		if c.testName == "" {
 			c.testName = extractTestName(line)
 		}
+
 	case c.testName != "":
 		// Part of the current test error output
 		fmt.Fprintln(c.buf, line)
@@ -112,14 +125,7 @@ func (c *collector) finishRecord() {
 		return
 	}
 	msg := c.buf.String()
-	if _, e := c.byName[c.testName]; !e {
-		c.byName[c.testName] = testResults{
-			name:  c.testName,
-			index: len(c.byName),
-			byMsg: make(map[string]int, 0),
-		}
-	}
-	r := c.byName[c.testName]
+	r := c.getTestResults(c.testName)
 	r.failed++
 	if _, e := r.byMsg[msg]; e {
 		r.byMsg[msg]++
