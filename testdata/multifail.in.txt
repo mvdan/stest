@@ -1,0 +1,10 @@
+--- FAIL: TestFoo (0.01s)
+        foo_test.go:10: wanted foo, got bar
+--- FAIL: TestFoo (0.01s)
+        foo_test.go:20: wanted foo, got nil
+--- FAIL: TestFoo (0.01s)
+        foo_test.go:20: wanted foo, got nil
+--- FAIL: TestFoo (0.01s)
+        foo_test.go:30: assert failed
+FAIL
+FAIL	foo.org/bar	0.050s

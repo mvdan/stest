@@ -17,10 +17,17 @@ type testResults struct {
 	name     string
 	index    int
 	timesRan int
-	byMsg    map[string]int
+	byMsg    map[string]failure
 
 	failed  int
 	percent float32
+}
+
+type failure struct {
+	count int
+	index int
+
+	msg string
 }
 
 type collector struct {
@@ -58,7 +65,7 @@ func (c *collector) getTestResults(name string) testResults {
 		c.byName[name] = testResults{
 			name:  name,
 			index: len(c.byName),
-			byMsg: make(map[string]int, 0),
+			byMsg: make(map[string]failure, 0),
 		}
 	}
 	return c.byName[name]
@@ -73,11 +80,12 @@ func (c *collector) printResults() {
 			fmt.Fprintf(c.out, "--- FAIL: %s (%d times)\n",
 				r.name, r.failed)
 		}
-		for msg, count := range r.byMsg {
-			if len(r.byMsg) > 1 {
-				fmt.Fprintf(c.out, "-- Failed %d times:\n", count)
+		failures := c.sortedFailures(r.name)
+		for _, f := range failures {
+			if len(failures) > 1 {
+				fmt.Fprintf(c.out, "-- Failed %d times:\n", f.count)
 			}
-			fmt.Fprint(c.out, msg)
+			fmt.Fprint(c.out, f.msg)
 		}
 	}
 }
@@ -127,10 +135,14 @@ func (c *collector) finishRecord() {
 	msg := c.buf.String()
 	r := c.getTestResults(c.testName)
 	r.failed++
-	if _, e := r.byMsg[msg]; e {
-		r.byMsg[msg]++
+	if f, e := r.byMsg[msg]; e {
+		f.count++
+		r.byMsg[msg] = f
 	} else {
-		r.byMsg[msg] = 1
+		r.byMsg[msg] = failure{
+			count: 1,
+			index: len(r.byMsg),
+		}
 	}
 	c.byName[c.testName] = r
 	c.buf.Reset()
@@ -156,6 +168,28 @@ func (c *collector) sortedResults() []testResults {
 			r.percent = 100 * (float32(r.failed) / float32(r.timesRan))
 		}
 		list = append(list, r)
+	}
+	sort.Sort(list)
+	return list
+}
+
+type failureList []failure
+
+func (fl failureList) Len() int      { return len(fl) }
+func (fl failureList) Swap(i, j int) { fl[i], fl[j] = fl[j], fl[i] }
+func (fl failureList) Less(i, j int) bool {
+	if fl[i].count == fl[j].count {
+		return fl[i].index < fl[j].index
+	}
+	return fl[i].count > fl[j].count
+}
+
+func (c *collector) sortedFailures(name string) []failure {
+	r := c.byName[name]
+	list := make(failureList, 0, len(r.byMsg))
+	for msg, f := range r.byMsg {
+		f.msg = msg
+		list = append(list, f)
 	}
 	sort.Sort(list)
 	return list
