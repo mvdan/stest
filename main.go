@@ -163,6 +163,9 @@ func (rl resultsList) Less(i, j int) bool {
 func (c *collector) sortedResults() []testResults {
 	list := make(resultsList, 0, len(c.byName))
 	for n, r := range c.byName {
+		if r.failed < 1 {
+			continue
+		}
 		r.name = n
 		if r.timesRan > 0 {
 			r.percent = 100 * (float32(r.failed) / float32(r.timesRan))
