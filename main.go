@@ -27,7 +27,8 @@ type failure struct {
 	count int
 	index int
 
-	msg string
+	msg     string
+	percent float32
 }
 
 type collector struct {
@@ -80,10 +81,11 @@ func (c *collector) printResults() {
 			fmt.Fprintf(c.out, "--- FAIL: %s (%d times)\n",
 				r.name, r.failed)
 		}
-		failures := c.sortedFailures(r.name)
+		failures := c.sortedFailures(r.name, r.failed)
 		for _, f := range failures {
 			if len(failures) > 1 {
-				fmt.Fprintf(c.out, "-- Failed %d times:\n", f.count)
+				fmt.Fprintf(c.out, "-- Failed %d times (%.2f%%):\n",
+					f.count, f.percent)
 			}
 			fmt.Fprint(c.out, f.msg)
 		}
@@ -187,11 +189,12 @@ func (fl failureList) Less(i, j int) bool {
 	return fl[i].count > fl[j].count
 }
 
-func (c *collector) sortedFailures(name string) []failure {
+func (c *collector) sortedFailures(name string, total int) []failure {
 	r := c.byName[name]
 	list := make(failureList, 0, len(r.byMsg))
 	for msg, f := range r.byMsg {
 		f.msg = msg
+		f.percent = 100 * (float32(f.count) / float32(total))
 		list = append(list, f)
 	}
 	sort.Sort(list)

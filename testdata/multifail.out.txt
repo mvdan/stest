@@ -1,9 +1,9 @@
 --- FAIL: TestFoo (4 times)
--- Failed 2 times:
+-- Failed 2 times (50.00%):
         foo_test.go:20: wanted foo, got nil
--- Failed 1 times:
+-- Failed 1 times (25.00%):
         foo_test.go:10: wanted foo, got bar
--- Failed 1 times:
+-- Failed 1 times (25.00%):
         foo_test.go:30: assert failed
 FAIL
 FAIL	foo.org/bar	0.050s
