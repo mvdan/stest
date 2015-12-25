@@ -46,12 +46,13 @@ func newCollector(w io.Writer) *collector {
 	}
 }
 
-func (c *collector) run(r io.Reader) {
+func (c *collector) run(r io.Reader) error {
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		line := scanner.Text()
 		c.parseLine(line)
 	}
+	return scanner.Err()
 }
 
 func extractTestName(line string) string {
@@ -203,8 +204,15 @@ func (c *collector) sortedFailures(name string, total int) []failure {
 
 func main() {
 	c := newCollector(os.Stdout)
-	c.run(os.Stdin)
+	if err := c.run(os.Stdin); err != nil {
+		errExit(err)
+	}
 	if len(c.byName) > 0 {
 		os.Exit(1)
 	}
+}
+
+func errExit(err error) {
+	fmt.Fprintf(os.Stderr, "%v\n", err)
+	os.Exit(1)
 }
